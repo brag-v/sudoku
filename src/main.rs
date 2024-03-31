@@ -1,8 +1,13 @@
-use std::fmt;
+use std::{collections::HashMap, fmt, thread, time};
+
+fn clear() {
+    print!("{}[2J", 27 as char);
+}
+
 
 struct Board {
-    height: u8,
-    width: u8,
+    height: usize,
+    width: usize,
     nums: Vec<u8>,
 }
 
@@ -12,7 +17,7 @@ impl fmt::Display for Board {
         let numwidth = 1 + (self.width * self.height).ilog10() as u8;
         for ybox in 0..self.width {
             result.push(' ');
-            result.push_str(&"—".repeat(((self.width + 1) * self.height * (numwidth + 1) - 1).into()));
+            result.push_str(&"—".repeat(((((self.width + 1) * self.height) as u8) * (numwidth + 1) - 1).into()));
             result.push('\n');
             for y in 0..self.height {
                 for xbox in 0..self.height {
@@ -28,7 +33,7 @@ impl fmt::Display for Board {
             }
         }
         result.push(' ');
-        result.push_str(&"—".repeat(((self.width + 1) * self.height * (numwidth + 1) - 1).into()));
+        result.push_str(&"—".repeat(((((self.width + 1) * self.height) as u8) * (numwidth + 1) - 1).into()));
         write!(f, "{}", result)
     }
 }
@@ -36,7 +41,8 @@ impl fmt::Display for Board {
 impl Board {
     fn solve(&self) -> Option<Board> {
         let mut soulution = self.nums.clone();
-        if self.recursive_solve(&mut soulution) {
+        let map = self.gen_map();
+        if self.recursive_solve(&mut soulution, &map, 0) {
             Some(Board {
                 height : self.height,
                 width : self.width,
@@ -47,15 +53,29 @@ impl Board {
         }
     }
 
-    fn recursive_solve(&self, soulution : &mut Vec<u8>) -> bool {
+
+    fn recursive_solve(&self, soulution : &mut Vec<u8>, map : &Vec<Vec<usize>>, _last_index : usize) -> bool {
+        // {
+        //     // clear();
+        //     thread::sleep(time::Duration::from_millis(100));
+        //     let b = Board {
+        //         height : self.height,
+        //         width : self.width,
+        //         nums : soulution.to_owned(),
+        //     };
+        //     println!("{b}");
+        // }
         // find first zero-index
         let index = soulution.iter().position(|num| *num == 0);
         if let Some(i) = index {
+            // println!("{i}");
             // try all locally valid guesses on index
-            for num in self.valid_nums(&soulution, i) {
+            let highest_num = (self.width * self.height) as u8;
+            for num in 1..(highest_num+1) {
+                if map[i].iter().any(|i| soulution[*i] == num) {continue;}
                 soulution[i] = num;
                 // solve recursivly
-                if self.recursive_solve(soulution) {
+                if self.recursive_solve(soulution, map, i) {
                     return true;
                 }
             }
@@ -68,59 +88,59 @@ impl Board {
         }
     }
 
-    fn valid_nums(&self, current_board : &Vec<u8>, index : usize) -> Vec<u8> {
-        let mut nums: Vec<u8> = (0..(self.width * self.height + 1)).collect();
-        let mut must_check = self.get_col(&current_board, index);
-        // println!("{must_check:?}");
-        must_check.append(&mut self.get_row(&current_board,index));
-        // println!("{must_check:?}");
-        must_check.append(&mut self.get_box(&current_board,index));
-        // println!("{must_check:?}");
-        must_check.iter()
-            .for_each(|num| nums[*num as usize] = 0);
-        return nums.iter().filter(|num| **num != 0)
-            .copied()
-            .collect();
+    fn gen_map(&self) -> Vec<Vec<usize>> {
+        let mut map : Vec<Vec<usize>> = vec![];
+        let size = self.width * self.height;
+        for index in 0..(size*size) {
+            let mut index_set = vec![];
+            { // row
+                let start = index - index % size;
+                let end = start + size;
+                for i in start..end {
+                    index_set.push(i);
+                }
+            }
+            { // col
+                for row in 0..size {
+                    index_set.push(row * size + index % size);
+                }
+            }
+            { // box
+                let big_size = size * self.height;
+                let start_row = index / big_size * self.height;
+                let end_row = start_row + self.height;
+                let start_col = index % size - index % self.width;
+                let end_col = start_col + self.width;
+                for row in start_row..end_row {
+                    for col in start_col..end_col {
+                        index_set.push(row * size + col);
+                    }
+                }
+            }
+            index_set.sort();
+            index_set.dedup();
+            map.push(
+                index_set
+                    .into_iter()
+                    .filter(|i| *i as usize != index)
+                    .collect()
+            );
+        }
+        map
     }
 
-    fn get_box(&self, current_board : &Vec<u8>, index : usize) -> Vec<u8> {
-        let size = (self.width * self.height) as usize;
-        let big_size = size * self.height as usize;
-        let start_row_index = index / big_size * self.height as usize;
-        let end_row_index = start_row_index + self.height as usize;
-        let start_col_index = index % size - index % self.width as usize;
-        let end_col_index = start_col_index + self.width as usize;
-        // println!("{},{},{},{}",start_row_index,end_row_index,start_col_index,end_col_index);
-        return (start_row_index..end_row_index).into_iter()
-            .map(|row_index| row_index * size)
-            .map(|index| current_board[(index + start_col_index)..(index + end_col_index)].to_vec())
-            .collect::<Vec<Vec<u8>>>()
+    fn valid_nums(&self, map : &Vec<Vec<&u8>>, index : usize) -> Vec<u8> {
+        let size = self.height * self.width;
+        let mut nums : Vec<usize> = (1..(size+1)).collect();
+        map[index]
             .iter()
-            .flatten()
-            .filter(|num| **num != 0)
-            .copied()
-            .collect();
-    }
-
-    fn get_row(&self, current_board : &Vec<u8>, index : usize) -> Vec<u8> {
-        let size = (self.width * self.height) as usize;
-        let start = index - index % size;
-        let end = start + size;
-        current_board[start..end]
+            .filter(|num| ***num != 0)
+            .for_each(|num| nums[(**num as usize)-1] = 0);
+        nums
             .iter()
             .filter(|num| **num != 0)
-            .copied()
+            .map(|num| *num as u8)
             .collect()
-    }
-
-    fn get_col(&self, current_board : &Vec<u8>, index : usize) -> Vec<u8> {
-        let size = (self.width * self.height) as usize;
-        return current_board[(index % size)..(size * size)]
-            .iter()
-            .step_by(size)
-            .filter(|num| **num != 0)
-            .copied()
-            .collect();
     }
 }
 
@@ -139,27 +159,30 @@ fn main() {
             0,0,0,0,0,0,0,0,0,
             0,0,0,0,0,0,0,0,0,
             0,0,0,0,0,0,0,0,0,
-            0,0,0,1,0,0,0,0,0,
             0,0,0,0,0,0,0,0,0,
             0,0,0,0,0,0,0,0,0,
             0,0,0,0,0,0,0,0,0,
-            1,0,0,0,0,0,0,0,0],
+            0,0,0,0,0,0,0,0,0,
+            0,0,0,0,0,2,0,0,0],
     };
     let _b3 = Board {
         height : 2,
         width : 3,
-        nums : vec![1,2,3,4,5,6,
-            1,2,3,4,5,6,
-            1,2,3,4,0,6,
-            1,2,3,4,5,6,
-            1,2,3,4,5,6,
-            1,2,3,4,5,6],
+        nums : vec![
+            6,0,0,0,0,2,
+            0,0,0,0,0,0,
+            0,0,0,0,0,0,
+            0,1,0,0,0,0,
+            0,0,0,3,0,1,
+            0,0,0,0,0,0,
+        ],
     };
-    // println!("{b1}");
-    println!("{_b2}");
-    match _b2.solve() {
+    let start_time = time::Instant::now();
+    let solved = _b2.solve();
+    let end_time = start_time.elapsed();
+    println!("finished in {:?}",end_time);
+    match solved {
         Some(solved) => println!("{solved}"),
         None => println!("Unable to solve"),
     }
-    // println!("{b3}");
 }
