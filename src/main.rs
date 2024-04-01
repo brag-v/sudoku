@@ -1,4 +1,5 @@
-use std::{collections::HashMap, fmt, thread, time};
+use std::{fmt, thread, time};
+
 
 fn clear() {
     print!("{}[2J", 27 as char);
@@ -38,11 +39,22 @@ impl fmt::Display for Board {
     }
 }
 
+// fn gen_board(width : usize, height : usize) -> Board {
+//     let mut board = Board {
+//         width,
+//         height,
+//         nums : vec![0; width*width*height*height],
+//     };
+//     board = board.solve().unwrap();
+//     board
+// }
+
 impl Board {
-    fn solve(&self) -> Option<Board> {
+    pub fn solve(&self) -> Option<Board> {
         let mut soulution = self.nums.clone();
         let map = self.gen_map();
-        if self.recursive_solve(&mut soulution, &map, 0) {
+        let guess_priority = |highest_num| (1..highest_num+1).collect();
+        if self.recursive_solve(&mut soulution, &map, guess_priority) {
             Some(Board {
                 height : self.height,
                 width : self.width,
@@ -54,9 +66,24 @@ impl Board {
     }
 
 
-    fn recursive_solve(&self, soulution : &mut Vec<u8>, map : &Vec<Vec<usize>>, _last_index : usize) -> bool {
+    fn one_soulution(&self) -> bool {
+        let mut soulution1 = self.nums.clone();
+        let mut soulution2 = self.nums.clone();
+        let low_num_priority = |highest_num| (1..highest_num+1).collect();
+        let high_num_priority = |highest_num| (1..highest_num+1).rev().collect();
+        let map = self.gen_map();
+        if self.recursive_solve(&mut soulution1, &map, low_num_priority) {
+            self.recursive_solve(&mut soulution2, &map, high_num_priority);
+            soulution1 == soulution2
+        } else {
+            false
+        }
+    }
+
+
+    fn recursive_solve(&self, soulution : &mut Vec<u8>, map : &Vec<Vec<usize>>, guess_priority: fn(u8) -> Vec<u8>) -> bool {
         // {
-        //     // clear();
+        //     clear();
         //     thread::sleep(time::Duration::from_millis(100));
         //     let b = Board {
         //         height : self.height,
@@ -65,22 +92,21 @@ impl Board {
         //     };
         //     println!("{b}");
         // }
-        // find first zero-index
+        // find index of first zero
         let index = soulution.iter().position(|num| *num == 0);
-        if let Some(i) = index {
-            // println!("{i}");
+        if let Some(index) = index {
             // try all locally valid guesses on index
-            let highest_num = (self.width * self.height) as u8;
-            for num in 1..(highest_num+1) {
-                if map[i].iter().any(|i| soulution[*i] == num) {continue;}
-                soulution[i] = num;
+            let highest_num = (self.height * self.width) as u8;
+            for num in guess_priority(highest_num) {
+                if map[index].iter().any(|i| soulution[*i] == num) { continue }
+                soulution[index] = num;
                 // solve recursivly
-                if self.recursive_solve(soulution, map, i) {
+                if self.recursive_solve(soulution, map, guess_priority) {
                     return true;
                 }
             }
             // board is in ivalid position, undo guess
-            soulution[i] = 0;
+            soulution[index] = 0;
             return false;
         } else {
             // board is filled
@@ -128,42 +154,28 @@ impl Board {
         }
         map
     }
-
-    fn valid_nums(&self, map : &Vec<Vec<&u8>>, index : usize) -> Vec<u8> {
-        let size = self.height * self.width;
-        let mut nums : Vec<usize> = (1..(size+1)).collect();
-        map[index]
-            .iter()
-            .filter(|num| ***num != 0)
-            .for_each(|num| nums[(**num as usize)-1] = 0);
-        nums
-            .iter()
-            .filter(|num| **num != 0)
-            .map(|num| *num as u8)
-            .collect()
-    }
 }
 
 fn main() {
     let _b1 = Board {
         height : 2,
         width : 2,
-        // nums : vec![1,2,3,4,3,4,1,0,2,3,4,1,4,1,2,3],
         nums : vec![0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4],
     };
     let _b2 = Board {
         height : 3,
         width : 3,
         nums : vec![
-            0,0,0,0,0,0,0,0,0,
-            0,0,0,0,0,0,0,0,0,
-            0,0,0,0,0,0,0,0,0,
-            0,0,0,0,0,0,0,0,0,
-            0,0,0,0,0,0,0,0,0,
-            0,0,0,0,0,0,0,0,0,
-            0,0,0,0,0,0,0,0,0,
-            0,0,0,0,0,0,0,0,0,
-            0,0,0,0,0,2,0,0,0],
+            1,0,0,0,3,0,5,9,0,
+            0,6,0,4,8,0,3,0,0,
+            0,0,0,0,0,2,0,0,0,
+            0,3,1,0,0,0,6,0,7,
+            2,0,0,0,0,0,0,0,1,
+            5,0,6,0,0,0,8,2,0,
+            0,0,0,2,0,0,0,0,0,
+            0,0,4,0,7,8,0,3,0,
+            0,7,8,0,9,0,0,0,5,
+        ],
     };
     let _b3 = Board {
         height : 2,
@@ -177,12 +189,21 @@ fn main() {
             0,0,0,0,0,0,
         ],
     };
+    let _b4 = Board {
+        height : 3,
+        width : 3,
+        nums : vec![0; 3*3*3*3],
+    };
     let start_time = time::Instant::now();
-    let solved = _b2.solve();
+    let solved = _b4.solve();
     let end_time = start_time.elapsed();
     println!("finished in {:?}",end_time);
     match solved {
-        Some(solved) => println!("{solved}"),
+        Some(solved) => {
+            // println!("{:?}",solved.one_soulution());
+            // println!("{:?}",_b1.one_soulution());
+            println!("{solved}")
+        }
         None => println!("Unable to solve"),
     }
 }
