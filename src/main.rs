@@ -1,4 +1,6 @@
 use std::{fmt, thread, time};
+use rand::thread_rng;
+use rand::seq::SliceRandom;
 
 
 fn clear() {
@@ -39,21 +41,51 @@ impl fmt::Display for Board {
     }
 }
 
-// fn gen_board(width : usize, height : usize) -> Board {
-//     let mut board = Board {
-//         width,
-//         height,
-//         nums : vec![0; width*width*height*height],
-//     };
-//     board = board.solve().unwrap();
-//     board
-// }
+fn gen_board(width : usize, height : usize, redundent_nums : u8) -> Board {
+    let bigsize = width*width*height*height;
+    // generate random board filled board
+    let mut board = Board {
+        width,
+        height,
+        nums : vec![0; bigsize],
+    };
+    let mut soulution = board.nums.clone();
+    let map = board.gen_map();
+    let guess_priority = |highest_num| {
+        let mut v : Vec<u8> = (1..highest_num+1).collect();
+        v.shuffle(&mut thread_rng());
+        v.into_iter()
+    };
+    board.recursive_solve(&mut soulution, &map, guess_priority);
+    board.nums = soulution;
+
+    // remove numbers until multiple valid soultutions exists (unsolvable)
+    let mut removing_order = (0..bigsize).collect::<Vec<usize>>();
+    removing_order.shuffle(&mut thread_rng());
+    let mut removed = vec![];
+    let mut i = 0;
+    while board.one_soulution() {
+        removed.push(board.nums[removing_order[i]]);
+        board.nums[removing_order[i]] = 0;
+        i += 1;
+    }
+    // add back one number to make it solvable, and redundent numbers to make it easier
+    for _ in 0..(redundent_nums+1) {
+        if i == 0 {
+            break;
+        }
+        i -= 1;
+        board.nums[removing_order[i]] = removed.pop().unwrap();
+    }
+
+    return board;
+}
 
 impl Board {
     pub fn solve(&self) -> Option<Board> {
         let mut soulution = self.nums.clone();
         let map = self.gen_map();
-        let guess_priority = |highest_num| (1..highest_num+1).collect();
+        let guess_priority = |highest_num| (1..highest_num+1);
         if self.recursive_solve(&mut soulution, &map, guess_priority) {
             Some(Board {
                 height : self.height,
@@ -69,8 +101,8 @@ impl Board {
     fn one_soulution(&self) -> bool {
         let mut soulution1 = self.nums.clone();
         let mut soulution2 = self.nums.clone();
-        let low_num_priority = |highest_num| (1..highest_num+1).collect();
-        let high_num_priority = |highest_num| (1..highest_num+1).rev().collect();
+        let low_num_priority = |highest_num| (1..highest_num+1);
+        let high_num_priority = |highest_num| (1..highest_num+1).rev();
         let map = self.gen_map();
         if self.recursive_solve(&mut soulution1, &map, low_num_priority) {
             self.recursive_solve(&mut soulution2, &map, high_num_priority);
@@ -81,10 +113,10 @@ impl Board {
     }
 
 
-    fn recursive_solve(&self, soulution : &mut Vec<u8>, map : &Vec<Vec<usize>>, guess_priority: fn(u8) -> Vec<u8>) -> bool {
+    fn recursive_solve<T: Iterator<Item = u8>>(&self, soulution : &mut Vec<u8>, map : &Vec<Vec<usize>>, guess_priority: fn(u8) -> T) -> bool {
         // {
         //     clear();
-        //     thread::sleep(time::Duration::from_millis(100));
+        //     thread::sleep(time::Duration::from_millis(200));
         //     let b = Board {
         //         height : self.height,
         //         width : self.width,
@@ -108,39 +140,35 @@ impl Board {
             // board is in ivalid position, undo guess
             soulution[index] = 0;
             return false;
-        } else {
-            // board is filled
-            return true;
         }
+        // board is filled
+        return true;
     }
 
     fn gen_map(&self) -> Vec<Vec<usize>> {
-        let mut map : Vec<Vec<usize>> = vec![];
         let size = self.width * self.height;
+        let mut map : Vec<Vec<usize>> = Vec::with_capacity(size*size);
         for index in 0..(size*size) {
-            let mut index_set = vec![];
-            { // row
-                let start = index - index % size;
-                let end = start + size;
-                for i in start..end {
-                    index_set.push(i);
-                }
+            let mut index_set = Vec::with_capacity(size*3);
+            // row
+            let start = index - index % size;
+            let end = start + size;
+            for i in start..end {
+                index_set.push(i);
             }
-            { // col
-                for row in 0..size {
-                    index_set.push(row * size + index % size);
-                }
+            // col
+            for row in 0..size {
+                index_set.push(row * size + index % size);
             }
-            { // box
-                let big_size = size * self.height;
-                let start_row = index / big_size * self.height;
-                let end_row = start_row + self.height;
-                let start_col = index % size - index % self.width;
-                let end_col = start_col + self.width;
-                for row in start_row..end_row {
-                    for col in start_col..end_col {
-                        index_set.push(row * size + col);
-                    }
+            // box
+            let big_size = size * self.height;
+            let start_row = index / big_size * self.height;
+            let end_row = start_row + self.height;
+            let start_col = index % size - index % self.width;
+            let end_col = start_col + self.width;
+            for row in start_row..end_row {
+                for col in start_col..end_col {
+                    index_set.push(row * size + col);
                 }
             }
             index_set.sort();
@@ -190,20 +218,20 @@ fn main() {
         ],
     };
     let _b4 = Board {
-        height : 3,
-        width : 3,
-        nums : vec![0; 3*3*3*3],
+        height : 5,
+        width : 4,
+        nums : vec![0; 4*4*5*5],
     };
-    let start_time = time::Instant::now();
-    let solved = _b4.solve();
-    let end_time = start_time.elapsed();
-    println!("finished in {:?}",end_time);
-    match solved {
-        Some(solved) => {
-            // println!("{:?}",solved.one_soulution());
-            // println!("{:?}",_b1.one_soulution());
-            println!("{solved}")
-        }
-        None => println!("Unable to solve"),
-    }
+    // println!("{:?}",_b2.one_soulution());
+    // let start_time = time::Instant::now();
+    // let solved = _b4.solve();
+    // let end_time = start_time.elapsed();
+    // println!("finished in {:?}",end_time);
+    // match solved {
+    //     Some(solved) => {
+    //         println!("{solved}")
+    //     }
+    //     None => println!("Unable to solve"),
+    // }
+    println!("{}", gen_board(4,3,0));
 }
