@@ -59,26 +59,21 @@ fn gen_board(width : usize, height : usize, redundent_nums : u8) -> Board {
     board.recursive_solve(&mut soulution, &map, guess_priority);
     board.nums = soulution;
 
-    // remove numbers until multiple valid soultutions exists (unsolvable)
+    // remove numbers from board in random order
+    // if multiple solution exist after removing a number, add back the number
     let mut removing_order = (0..bigsize).collect::<Vec<usize>>();
     removing_order.shuffle(&mut thread_rng());
     let mut removed = vec![];
-    let mut i = 0;
-    while board.one_soulution() {
-        removed.push(board.nums[removing_order[i]]);
-        board.nums[removing_order[i]] = 0;
-        i += 1;
-    }
-    // add back one number to make it solvable, and redundent numbers to make it easier
-    for _ in 0..(redundent_nums+1) {
-        if i == 0 {
-            break;
+
+    for num in removing_order {
+        removed.push(board.nums[num]);
+        board.nums[num] = 0;
+        if !board.one_soulution() {
+            board.nums[num] = removed.pop().unwrap();
         }
-        i -= 1;
-        board.nums[removing_order[i]] = removed.pop().unwrap();
     }
 
-    return board;
+    board
 }
 
 impl Board {
