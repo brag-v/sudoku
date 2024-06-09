@@ -3,13 +3,13 @@ use super::*;
 #[test]
 fn test_gen_map() {
     let board = Board {
-        height : 3,
-        width : 3,
-        nums : vec![0; 3*3*3*3]
+        height: 3,
+        width: 3,
+        ..Default::default()
     };
     let map = board.gen_map();
     assert_eq!(map[0], [    
-        1, 2, 3, 4, 5, 6, 7, 8,
+            1, 2, 3, 4, 5, 6, 7, 8,
         9, 10,11,
         18,19,20,
         27,
@@ -30,14 +30,37 @@ fn test_gen_map() {
                  66,
                  75,
     ]);
+
+    let board = Board {
+        height: 3,
+        width: 2,
+        ..Default::default()
+    };
+    let map = board.gen_map();
+    assert_eq!(map[15], [    
+               2, 3,      
+               8, 9,      
+        12,13,14   ,16,17,
+                 21,         
+                 27,         
+                 33,         
+    ]);
+    assert_eq!(map[35], [         
+                        5,
+                       11,
+                       17,
+                    22,23,
+                    28,29,
+        30,31,32,33,34,   
+    ]);
 }
 
 #[test]
 fn test_is_solved() {
     let mut solved_board = Board {
-        height : 3,
-        width : 3,
-        nums : vec![
+        height: 3,
+        width: 3,
+        nums: vec![
             9,2,6,1,7,8,5,4,3,
             4,7,3,6,5,2,1,9,8,
             8,5,1,9,4,3,6,2,7,
@@ -61,18 +84,18 @@ fn test_is_solved() {
 #[test]
 fn test_solve_empty() {
     let board1 = Board {
-        height : 4,
-        width : 3,
-        nums : vec![0; 3*3*4*4],
+        height: 4,
+        width: 3,
+        nums: vec![0; 3*3*4*4],
     };
     let solved1 = board1.solve();
     assert!(solved1.is_some());
     assert!(solved1.unwrap().is_solved());
 
     let board2 = Board {
-        height : 2,
-        width : 2,
-        nums : vec![0; 2*2*2*2],
+        height: 2,
+        width: 2,
+        nums: vec![0; 2*2*2*2],
     };
     let solved2 = board2.solve();
     assert!(solved2.is_some());
@@ -82,9 +105,9 @@ fn test_solve_empty() {
 #[test]
 fn test_solve_partial() {
     let board = Board {
-        height : 2,
-        width : 3,
-        nums : vec![
+        height: 2,
+        width: 3,
+        nums: vec![
             1,0,4,0,3,6,
             0,0,6,1,0,0,
             0,4,1,0,2,5,
