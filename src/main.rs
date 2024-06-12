@@ -56,20 +56,16 @@ impl Default for Board {
         Board {
             width: 3,
             height: 3,
-            nums: vec![0; 3*3*3*3],
+            nums: vec![0; 3 * 3 * 3 * 3],
         }
     }
 }
 
-
-
 impl Board {
-
-    /// Returns a copy of the board in a solved state, 
+    /// Returns a copy of the board in a solved state,
     /// or None if board is unsolvable
     pub fn solve(&self) -> Option<Board> {
         if !self.no_invalid() {
-            println!("swag");
             return None;
         }
         let mut soulution = self.nums.clone();
@@ -98,13 +94,11 @@ impl Board {
         let map = self.gen_map();
         self.nums
             .iter()
-            .filter(|num| **num != 0)
             .enumerate()
+            .filter(|(_, num)| **num != 0)
             .all(|(i, num)| {
                 *num <= (self.width * self.height) as u8
-                    && !map[i]
-                        .iter()
-                        .any(|map_num| self.nums[*map_num] == *num)
+                    && !map[i].iter().any(|map_num| self.nums[*map_num] == *num)
             })
     }
 
@@ -113,12 +107,12 @@ impl Board {
         !self.nums.contains(&0)
     }
 
-    /// The board has a single unique valid soulution
+    /// The board has a single valid soulution
     fn one_soulution(&self) -> bool {
         // tries to solve the board using two methods,
         // one priorities low guesses, and one priorities high guesses.
         // Since the recursive algorithm is depth first,
-        // and the two methods search the DFS-tree in opposite order
+        // and the two methods search (the bottom of) the DFS-tree in opposite order
         // only one soulution will exist if the two soultions are equal.
         let mut soulution_1 = self.nums.clone();
         let mut soulution_2 = self.nums.clone();
@@ -210,7 +204,7 @@ impl Board {
     }
 }
 
-// Generates an unsolved sudoku board
+/// Generate an unsolved solvable sudoku board
 fn gen_board(width: usize, height: usize) -> Board {
     let bigsize = width * width * height * height;
     // generate random solved board
@@ -228,10 +222,10 @@ fn gen_board(width: usize, height: usize) -> Board {
     };
     board.recursive_solve(&mut soulution, &map, guess_priority);
     board.nums = soulution;
-    println!("{board}");
 
-    // remove numbers from board in random order
+    // Remove numbers from board
     // if multiple solution exist after removing a number, add back the number
+    // all numbers are attemted, in a random order
     let mut removing_order = (0..bigsize).collect::<Vec<usize>>();
     removing_order.shuffle(&mut thread_rng());
     let mut removed = vec![];
